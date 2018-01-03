@@ -1,0 +1,135 @@
+<link rel="import" href="../polymer/polymer-element.html">
+<link rel="import" href="../soso-text-input/soso-text-input.html">
+
+<dom-module id="card-feed-iframe-composer">
+  <template>
+    <style>
+      .container {
+        max-width: 600px;
+        padding: 10px;
+        margin: 25px auto;
+      }
+
+      soso-text-input {
+        font-size: 15px;
+        margin: 25px 0;
+        --soso-label-color: #2E7D32;
+        --soso-label-size: 90%;
+        --soso-valid-color: #2E7D32;
+      }
+
+      #errorMessage {
+        color: red;
+      }
+    </style>
+    <div class="container">
+      <h2>In-feed advertisements</h2>
+      <p>This composes a card that will use an iframe to display itself in the feed and is not openable within Channels.</p>
+      <soso-text-input id="title" label="Title" placeholder="Title" on-input="_onInput"></soso-text-input>
+      <soso-text-input id="input" label="Enter iframe src URL" placeholder="Enter iframe src URL" on-input="_onInput"></soso-text-input>
+      <div id="errorMessage"></div>
+    </div>
+  </template>
+  <script>
+    class CardFeedIframeComposer extends Polymer.Element {
+      static get is() { return 'card-feed-iframe-composer'; }
+      static get properties() {
+        return {
+          services: Object,             // .upload(file) => Promise<String>
+          author: Object                // .imageUrl, .handle, .name
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.$.input.value = "";
+        this._ready = false;
+      }
+
+      get isReady() {
+        return this._ready;
+      }
+
+      prepare() {
+        return new Promise((resolve, reject) => {
+          this.$.errorMessage.innerText = "Testing...";
+          if (!this._ready) {
+            throw new Error("Not ready");
+          }
+          if (!this.services.queryPage) {
+            resolve();
+            return;
+          }
+          this.services.queryPage(this.$.input.value.trim()).then((response) => {
+            if (response.embeddable) {
+              resolve();
+            } else {
+              this.$.errorMessage.innerText = response.notEmbeddableReason;
+              reject();
+            }
+          }).catch((err) => {
+            this.$.errorMessage.innerText = "Unable to use this URL";
+            reject();
+          });
+        });
+      }
+
+      get summary() {
+        return {
+          imageURL: null,
+          title: null,
+          text: null,
+          linkUrl: this.$.input.value.trim()
+        };
+      }
+
+      _onInput() {
+        if (this.$.title.value.trim().length === 0) {
+          this.$.errorMessage.innerText = "You must provide a title";
+          return;
+        }
+        this.$.errorMessage.innerText = '';
+        const ready = /^https\:\/\/\S+$/.test(this.$.input.value.trim());
+        const http = /^http:\/\//.test(this.$.input.value.trim());
+        if (http) {
+          this.$.errorMessage.innerText = "Invalid URL: Only secure webpages are supported (https://...).";
+          return;
+        }
+        if (this._ready !== ready) {
+          this._ready = ready;
+          this.dispatchEvent(new CustomEvent('state-ready-change', { bubbles: true, composed: true, detail: { ready: ready } }));
+        }
+      }
+
+      get sharedState() {
+        return {
+          properties: {},
+          collections: {}
+        };
+      }
+
+      get searchText() {
+        return null;
+      }
+    }
+    window.customElements.define(CardFeedIframeComposer.is, CardFeedIframeComposer);
+  </script>
+</dom-module>
+
+<dom-module id="card-feed-iframe-viewer">
+  <template>
+    <div>
+      <div>This viewer is never used</div>
+    </div>
+  </template>
+  <script>
+    class CardFeedIframeViewer extends Polymer.Element {
+      static get is() { return 'card-feed-iframe-viewer'; }
+
+      connectedCallback() {
+        super.connectedCallback();
+      }
+    }
+    window.customElements.define(CardFeedIframeViewer.is, CardFeedIframeViewer);
+  </script>
+</dom-module>
